@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Check } from 'lucide-react';
+import { Check, ShieldCheck } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -111,16 +112,28 @@ const BookingForm: React.FC = () => {
                 ))}
               </ul>
             </div>
-            
-            <div className="mt-8 md:mt-12 p-4 md:p-6 bg-black/50 rounded-xl border border-red-900/30">
-              <p className="text-red-400 text-sm font-bold flex items-center gap-2 mb-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                ATENÇÃO
-              </p>
-              <p className="text-gray-400 text-xs md:text-sm">
-                Reservamos um número limitado de análises gratuitas por semana. Garanta seu horário agora.
-              </p>
+
+            {/* Trust Badges - NEW SECTION */}
+            <div className="mt-8 space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-green-900/10 border border-green-900/30">
+                   <ShieldCheck className="w-8 h-8 text-green-500 shrink-0" />
+                   <div>
+                      <p className="text-green-500 font-bold text-sm">Garantia Eleven</p>
+                      <p className="text-gray-400 text-xs">Sem contratos de fidelidade abusivos. Focamos no seu resultado.</p>
+                   </div>
+                </div>
+
+                <div className="mt-8 md:mt-12 p-4 md:p-6 bg-black/50 rounded-xl border border-red-900/30">
+                  <p className="text-red-400 text-sm font-bold flex items-center gap-2 mb-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                    ATENÇÃO
+                  </p>
+                  <p className="text-gray-400 text-xs md:text-sm">
+                    Reservamos um número limitado de análises gratuitas por semana. Garanta seu horário agora.
+                  </p>
+                </div>
             </div>
+            
           </div>
 
           {/* Right Side - Calendar */}
