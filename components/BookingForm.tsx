@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { submitLead, LeadData } from '../services/api';
-import { Check, Loader2, ArrowRight } from 'lucide-react';
+import { Check, ArrowRight } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -10,19 +9,46 @@ declare global {
   }
 }
 
+interface LeadData {
+  name: string;
+  email: string;
+  phone: string;
+  revenue: string;
+}
+
 const BookingForm: React.FC = () => {
   const [step, setStep] = useState<1 | 2>(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedData, setSavedData] = useState<LeadData | null>(null);
   const [widgetLoaded, setWidgetLoaded] = useState(false);
   const calendlyContainerRef = useRef<HTMLDivElement>(null);
   
   const { register, handleSubmit, formState: { errors } } = useForm<LeadData>();
 
-  // Effect to load Calendly widget when reaching step 2
+  // 1. Listen for Calendly Success Event for Google Ads Tracking
+  useEffect(() => {
+    const handleCalendlyEvent = (e: MessageEvent) => {
+      if (e.data.event && e.data.event === 'calendly.event.scheduled') {
+        console.log("Calendly Event: Scheduled! Firing Google Ads Conversion.");
+        
+        // Fire Google Ads Conversion Event ONLY when booking is confirmed
+        if (typeof window !== 'undefined' && window.gtag) {
+          window.gtag('event', 'conversion', {
+              send_to: 'AW-16692273493/i5T5CObDicgbENXCv5c-',
+              value: 1.0,
+              currency: 'USD'
+          });
+        }
+      }
+    };
+
+    window.addEventListener('message', handleCalendlyEvent);
+    return () => window.removeEventListener('message', handleCalendlyEvent);
+  }, []);
+
+  // 2. Load Calendly Widget when Step 2 is active
   useEffect(() => {
     if (step === 2) {
-      // Safety timeout: if Calendly doesn't report ready in 2s, show it anyway
+      // Safety timeout: force loader off after 2s if widget is slow
       const safetyTimer = setTimeout(() => {
         setWidgetLoaded(true);
       }, 2000);
@@ -47,15 +73,12 @@ const BookingForm: React.FC = () => {
             },
             utm: {} 
           });
-          // Note: Calendly doesn't provide a reliable 'loaded' callback for inline widgets,
-          // so we use the safety timer or assume immediate execution.
         }
       };
 
       if (window.Calendly) {
         loadCalendly();
       } else {
-        // Load script dynamically if not present
         const script = document.createElement("script");
         script.src = "https://assets.calendly.com/assets/external/widget.js";
         script.async = true;
@@ -70,30 +93,11 @@ const BookingForm: React.FC = () => {
     }
   }, [step, savedData]);
 
-  const onSubmit = async (data: LeadData) => {
-    setIsSubmitting(true);
-    try {
-      // Send data to Email + Trello
-      await submitLead(data);
-      
-      setSavedData(data);
-      
-      // Fire Google Ads Conversion Event
-      if (typeof window !== 'undefined' && window.gtag) {
-        window.gtag('event', 'conversion', {
-            send_to: 'AW-16692273493/i5T5CObDicgbENXCv5c-',
-            value: 1.0,
-            currency: 'USD'
-        });
-      }
-
-      setStep(2);
-    } catch (error) {
-      console.error("Submission error", error);
-      alert("Erro ao enviar. Tente novamente.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const onSubmit = (data: LeadData) => {
+    // Save data to state to prefill Calendly
+    setSavedData(data);
+    // Move immediately to Step 2 (Calendly)
+    setStep(2);
   };
 
   return (
@@ -108,13 +112,13 @@ const BookingForm: React.FC = () => {
           <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
             {step === 1 
               ? "Preencha seus dados abaixo para liberar o calendário. Vamos analisar seu mercado local e montar um plano de ação."
-              : "Excelente! Seus dados foram recebidos. Agora escolha o melhor horário abaixo."}
+              : "Excelente! Agora escolha o melhor horário abaixo para falarmos."}
           </p>
         </div>
 
         {/* 
           Main Card 
-          CRITICAL FIX: Remove 'overflow-hidden' when in Step 2 to allow Calendly full height.
+          CRITICAL FIX: overflow-visible on step 2 for mobile compatibility
         */}
         <div className={`bg-eleven-gray rounded-2xl md:rounded-3xl shadow-2xl border border-white/5 flex flex-col md:flex-row min-h-[600px] ${step === 2 ? 'overflow-visible' : 'overflow-hidden'}`}>
           
@@ -209,21 +213,11 @@ const BookingForm: React.FC = () => {
 
                 <button 
                   type="submit" 
-                  disabled={isSubmitting}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 md:py-4 rounded-lg shadow-lg hover:shadow-red-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-4 text-sm md:text-base"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 md:py-4 rounded-lg shadow-lg hover:shadow-red-600/20 transition-all flex items-center justify-center gap-2 mt-4 text-sm md:text-base"
                 >
-                  {isSubmitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      AVANÇAR PARA AGENDAMENTO
-                      <ArrowRight className="w-5 h-5" />
-                    </>
-                  )}
+                  AVANÇAR PARA AGENDAMENTO
+                  <ArrowRight className="w-5 h-5" />
                 </button>
-                <p className="text-center text-xs text-gray-500 mt-4">
-                  Seus dados estão seguros. Nós não enviamos spam.
-                </p>
               </form>
             ) : (
               <div className="flex flex-col fade-in bg-white rounded-xl overflow-hidden relative">
@@ -237,7 +231,7 @@ const BookingForm: React.FC = () => {
                   {/* Only show loader if we haven't marked widget as loaded */}
                   {!widgetLoaded && (
                      <div className="absolute inset-0 flex items-center justify-center bg-white z-10 h-96">
-                        <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+                        <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                      </div>
                   )}
               </div>
